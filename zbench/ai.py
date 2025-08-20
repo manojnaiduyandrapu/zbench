@@ -32,46 +32,43 @@ class AIModel(BaseModel):
     def ratelimit_tpm(self) -> float:
         match self.company:
             case "openai":
-                # Tier 5
                 match self.model:
                     case _ if self.model.startswith("gpt-4o-mini"):
-                        return 150_000_000
+                        return 10_000_000  # From API headers
                     case _ if self.model.startswith("gpt-4o"):
-                        return 30_000_000
+                        return 5_000_000   # Adjust as per your tier if needed
                     case "gpt-4-turbo":
-                        return 2_000_000
+                        return 4_000_000
                     case _:
                         return 1_000_000
             case "google":
                 # Tier 2
-                return 5_000_000
+                return 2_000_000
             case "anthropic":
-                # Tier 4
-                return 80_000
+                return 40_000
 
     @computed_field
     @property
     def ratelimit_rpm(self) -> float:
         match self.company:
             case "openai":
-                # Tier 5
                 match self.model:
                     case _ if self.model.startswith("gpt-4o-mini"):
-                        return 30_000
+                        return 10_000      # From API headers
                     case _:
-                        return 10_000
+                        return 5_000       # Adjust if API shows higher
             case "google":
                 # Tier 2
-                return 1_000
+                return 150
             case "anthropic":
-                # Tier 4
                 return 4_000
 
 class AIMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str
 
-RATE_LIMIT_RATIO = 0.95
+RATE_LIMIT_RATIO = 2.0  # Use full quota
+
 
 class AIConnection:
     openai_client: AsyncOpenAI
@@ -123,7 +120,7 @@ class AIConnection:
                 )
             self.backoff_semaphores[key] = asyncio.Semaphore(1)
             # Prevent too many redis connections.
-            self.redis_semaphores[key] = asyncio.Semaphore(100)
+            self.redis_semaphores[key] = asyncio.Semaphore(20)
         if backoff is not None:
             async with self.backoff_semaphores[key]:
                 await asyncio.sleep(backoff)
@@ -223,7 +220,7 @@ async def ai_call[T: str | BaseModel](
                     await get_ai_connection().ai_wait_ratelimit(
                         model, num_tokens_input, backoff_algo(i - 1) if i > 0 else None
                     )
-
+                    
                     def ai_message_to_openai_message_param(
                         message: AIMessage,
                     ) -> ChatCompletionMessageParam:
@@ -239,6 +236,7 @@ async def ai_call[T: str | BaseModel](
                         "openai": get_ai_connection().openai_client,
                         "google": get_ai_connection().google_client,
                     }[model.company]
+                    
                     if client is None:
                         raise AIValueError(f"{model.company!r} client not configured")
                     if response_format is str:
@@ -251,6 +249,7 @@ async def ai_call[T: str | BaseModel](
                             temperature=temperature,
                             max_tokens=max_tokens,
                         )
+                        logger.info("TRUESSS")
                         response_content = response.choices[0].message.content
                         assert response_content is not None
                         assert isinstance(response_content, response_format)

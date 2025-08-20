@@ -34,29 +34,45 @@ class Score:
 
         try:
             response = await ai_call(
-                model=model,
-                messages=[
-                    AIMessage(
-                        role="system",
-                        content=f"""
-# Task
+    model=model,
+    messages=[
+        AIMessage(
+            role="system",
+            content="""
+You are a relevance scoring system. You will be given a Query and two Documents (A and B).
 
-You are a relevance scoring system. Given a query and two documents (A and B), your job is to decide which document is more relevant to the given query. You should think carefully, considering the pros and cons between each document. For your first few sentences, consider the pros and cons of Document A. Then, spend some time thinking about Document B. Then, at the end, compare, and make a decision as to which one is more relevant. Do NOT make a decision in the beginning of your thoughts, stay open-minded until the last 1-2 sentences of your thoughts.
+## Instructions:
+1. **Evaluate Document A**:
+   - Note points that make it relevant to the Query.
+   - Note points that make it less relevant.
+2. **Evaluate Document B**:
+   - Note points that make it relevant to the Query.
+   - Note points that make it less relevant.
+3. **Compare and decide**:
+   - Only in the last 1–2 sentences choose which is more relevant overall.
+   - Stay open-minded until the comparison step.
 
-# Scoring
+## Scoring:
+- Output a single numeric score between **-1.0** and **1.0**:
+  - Negative → Document A is more relevant.
+  - Positive → Document B is more relevant.
+  - 0.0 → Equally relevant.
+- The **magnitude** reflects confidence (closer to ±1.0 = more confident).
 
-The score should range from -1.0 to 1.0, where negative means document A is more relevant, and positive means Document B is more relevant.
-You can pick any number from -1.0 to 1.0.
-                        """,
-                    ),
-                    AIMessage(
-                        role="user",
-                        content=f"# Query:\n\n{query}\n\n# Document A:\n\n{document_a}\n\n# Document B:\n\n{document_b}\n\n",
-                    )
-                ],
-                temperature=0,
-                response_format=RelevanceScore,
-            )
+## Output format:
+Reasoning: [Your comparative analysis]
+Score: [Your numeric score]
+"""
+        ),
+        AIMessage(
+            role="user",
+            content=f"# Query:\n{query}\n\n# Document A:\n{document_a}\n\n# Document B:\n{document_b}\n"
+        )
+    ],
+    temperature=0,
+    response_format=RelevanceScore,
+)
+
         except AIError as e:
             print("Unknown Exception!", e, file=sys.stderr)
             return DatasetPairScore(
@@ -83,35 +99,46 @@ You can pick any number from -1.0 to 1.0.
         thought = ""
         score = 0.0
         try:
-            messages=[
-                AIMessage(
-                    role="system",
-                    content=f"""
+            messages = [
+    AIMessage(
+        role="system",
+        content=f"""
 # Task
 
-You are a relevance scoring system. Given a query and two documents (A and B), your job is to decide which document is more relevant to the given query. You should think carefully, considering the pros and cons between each document. For your first few sentences, consider the pros and cons of Document A. Then, spend some time thinking about Document B. Then, at the end, compare, and make a decision as to which one is more relevant. Do NOT make a decision in the beginning of your thoughts, stay open-minded until the last 1-2 sentences of your thoughts. And, for the last 1-2 sentences, make a clear decision as to which document is more relevant. Ensure that by the last sentence of your thoughts that you've make a clear determination as to which document is more relevant, and also how strong that opinion is (e.g. slightly more relevant versus significantly more relevant).
+You are a relevance scoring system. You will be given a Query and two Documents (A and B).
 
-# Scoring
+## Instructions:
+1. Evaluate Document A:
+   - List points that make it relevant to the Query.
+   - List points that make it less relevant.
+2. Evaluate Document B:
+   - List points that make it relevant to the Query.
+   - List points that make it less relevant.
+3. Compare both documents objectively:
+   - Stay open-minded until this stage.
+   - In the final 1–2 sentences, make a **clear determination** of which document is more relevant and state whether the advantage is **slight, moderate, or strong**.
 
-The score should range from -1.0 to 1.0, where negative means document A is more relevant, and positive means Document B is more relevant.
-You can pick any number from -1.0 to 1.0.
+## Scoring:
+- Output a single float between **-1.0 and 1.0**:
+  - Negative → Document A is more relevant.
+  - Positive → Document B is more relevant.
+- Do **not** output 0.0. Pick a side.
+- The magnitude reflects confidence (closer to ±1.0 = stronger preference).
 
-# Output Format
-
-At the very end, your last line should be written in this format:
+## Output format:
+After your reasoning, the final line **must** be:
 <score>
 {{your_score:.2f}}
 </score>
+Replace `your_score` with your chosen float.
+"""
+    ),
+    AIMessage(
+        role="user",
+        content=f"# Query:\n{query}\n\n# Document A:\n{document_a}\n\n# Document B:\n{document_b}\n"
+    )
+]
 
-Of course, replacing your_score with a float between -1.0 and 1.0.
-Do NOT output a score of 0.0, ensure to focus on which document is superior, and provide a negative or positive float between -1.0 and 1.0.
-                    """,
-                ),
-                AIMessage(
-                    role="user",
-                    content=f"# Query:\n\n{query}\n\n# Document A:\n\n{document_a}\n\n# Document B:\n\n{document_b}\n\n",
-                )
-            ]
             for retry in range(2):
                 response = await ai_call(
                     model=model,
@@ -162,19 +189,19 @@ Do NOT output a score of 0.0, ensure to focus on which document is superior, and
                 query,
                 document_a,
                 document_b,
-                model=AIModel(company="openai", model="gpt-4.1-2025-04-14"),
+                model=AIModel(company="openai", model="gpt-4.1-mini"),
             ),
             self.score_pair_structured(
                 query,
                 document_a,
                 document_b,
-                model=AIModel(company="google", model="gemini-2.5-pro-preview-03-25"),
+                model=AIModel(company="google", model="gemini-2.5-flash"),
             ),
             self.score_pair_unstructured(
                 query,  
                 document_a,
                 document_b,
-                model=AIModel(company="anthropic", model="claude-3-7-sonnet-20250219"),
+                model=AIModel(company="anthropic", model="claude-3-5-haiku-20241022"),
             )
         )
         return DatasetPairScoredPair(
