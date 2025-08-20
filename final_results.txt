@@ -1,0 +1,16 @@
+NDCG Score Comparison Results
+
+| Dataset        | NDCG@Full | NDCG@10  | NDCG@5   | Correlation | MAE   | RMSE  |
+|----------------|-----------|----------|----------|-------------|-------|-------|
+| V4 LLM         | 0.992202  | 0.992202 | 0.994892 | 0.898382    | 5.656 | 7.026 |
+| V5 LLM         | 0.396103  | 0.396101 | 0.394153 | 0.819569    | 4.693 | 6.041 |
+
+Key Findings:
+
+1. Best Overall Performance: V4 LLM achieves the highest NDCG scores across all metrics (~0.992)
+2. Ranking Quality: V4 >> V5 (significant performance gap)
+3. Score Accuracy: V5 has the lowest MAE (4.693) and RMSE (6.041), indicating most accurate absolute scores
+4. Correlation: V4 has the highest correlation (0.898) but V5 maintains good correlation (0.820) with ground truth
+5. Significant Gap: There's a large performance gap between V4 (0.99 NDCG) and V5 (0.40 NDCG) in ranking performance
+
+The V4 LLM model demonstrates the best ranking performance while V5 shows better absolute score accuracy. V4 achieves near-perfect ranking with 99.2% NDCG score.
